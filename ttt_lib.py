@@ -1,10 +1,11 @@
 """
-ttt_lib.py - 井字棋遊戲邏輯的介面草稿（L2 版本）
+ttt_lib.py - 井字棋遊戲邏輯模組（L3 版本）
 
 此版本目的：
-- 仍以「介面設計」為主
-- 但已經實作基本的棋盤操作（落子、檢查是否為空格）
-- 勝負判斷與平手判斷仍先保留為簡化版
+- 提供 GameState 管理棋盤狀態
+- 實作 set_move() / is_cell_empty()
+- 實作 check_winner() 判斷勝負
+- 實作 is_draw() 判斷平手
 """
 
 class GameState:
@@ -21,7 +22,7 @@ class GameState:
     def set_move(self, row, col, player):
         """
         在 (row, col) 放入指定玩家的棋子（"X" 或 "O"）。
-        這裡不檢查玩家是否合法，只單純寫入。
+        若該格不空或遊戲已結束，則不動作。
         """
         if self.is_cell_empty(row, col) and not self.game_over:
             self.board[row][col] = player
@@ -36,16 +37,67 @@ class GameState:
 def check_winner(board):
     """
     檢查是否有人獲勝。
-    L2 版本仍先回傳 None（表示尚未判斷）。
-    未來版本會實作列、行與對角線判斷。
+    參數：
+        board: 2D list，如 [["X","",""],["","O",""],...]
+    回傳：
+        "X" 或 "O" 表示某一方獲勝
+        None 表示尚未分出勝負
     """
+    size = len(board)
+
+    # 檢查每一列
+    for r in range(size):
+        first = board[r][0]
+        if first != "" and all(board[r][c] == first for c in range(size)):
+            return first
+
+    # 檢查每一行
+    for c in range(size):
+        first = board[0][c]
+        if first != "" and all(board[r][c] == first for r in range(size)):
+            return first
+
+    # 檢查主對角線
+    first = board[0][0]
+    if first != "" and all(board[i][i] == first for i in range(size)):
+        return first
+
+    # 檢查反對角線
+    first = board[0][size - 1]
+    if first != "" and all(board[i][size - 1 - i] == first for i in range(size)):
+        return first
+
+    # 沒人贏
     return None
 
 
 def is_draw(board):
     """
-    檢查是否平手。
-    L2 版本仍先回傳 False（永遠不平手）。
-    未來版本會依據棋盤是否填滿且無勝負來判斷。
+    檢查是否平手：
+    - 沒有任何一方獲勝，且
+    - 棋盤上已沒有空格
+    回傳：
+        True  -> 平手
+        False -> 尚未平手
     """
-    return False
+    # 有人贏就不是平手
+    if check_winner(board) is not None:
+        return False
+
+    # 只要還有空格，就不是平手
+    for row in board:
+        for cell in row:
+            if cell == "":
+                return False
+
+    return True
+
+
+# 選擇性：簡單自我測試
+if __name__ == "__main__":
+    gs = GameState(3)
+    gs.set_move(0, 0, "X")
+    gs.set_move(0, 1, "X")
+    gs.set_move(0, 2, "X")
+    print("Winner (預期 X):", check_winner(gs.board))
+    print("Is draw (預期 False):", is_draw(gs.board))
