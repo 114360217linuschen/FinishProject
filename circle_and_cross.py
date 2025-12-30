@@ -1,24 +1,44 @@
 import tkinter as tk
-from ttt_lib import GameState, check_winner, is_draw
+from ttt_lib import GameState, check_winner, is_draw, get_winning_cells
 
 """
-circle_and_cross.py - Tkinter 主程式（C3 版本）
+circle_and_cross.py - Tkinter 主程式（C4 版本）
 
-此版本目的：
-- 新增 GameState 整合：
-  - 不再讓按鈕自己記文字，而是由 GameState.board 管理棋盤
-  - 每一步都從 board 更新按鈕顯示
-- 使用 check_winner() / is_draw() 更新狀態列
-- 顯示「輪到玩家：X / O」
+相較 C3：
+- 新增「重新開始」按鈕
+- 遊戲結束時禁用所有格子（避免繼續點）
+- 若有人獲勝，標示勝利連線（用 relief/disabled 方式呈現）
 """
 
 BOARD_SIZE = 3
 
-# 全域變數：之後在 main() / start_new_game() 裡初始化
 game_state: GameState | None = None
 current_player = "X"
 buttons: list[list[tk.Button]] = []
 status_label: tk.Label
+
+
+def set_board_enabled(enabled: bool):
+    """啟用/禁用棋盤按鈕"""
+    state = tk.NORMAL if enabled else tk.DISABLED
+    for r in range(BOARD_SIZE):
+        for c in range(BOARD_SIZE):
+            buttons[r][c].config(state=state)
+
+
+def reset_button_styles():
+    """清除所有按鈕的樣式標示（例如 winner 線）"""
+    for r in range(BOARD_SIZE):
+        for c in range(BOARD_SIZE):
+            buttons[r][c].config(relief=tk.RAISED)
+
+
+def mark_winning_cells(cells: list[tuple[int, int]]):
+    """
+    用按鈕的 relief 做簡單標示（不依賴顏色，跨平台較穩）
+    """
+    for (r, c) in cells:
+        buttons[r][c].config(relief=tk.SUNKEN)
 
 
 def update_board_ui():
@@ -31,74 +51,61 @@ def update_board_ui():
 
 
 def update_status_label():
-    """顯示目前輪到哪位玩家"""
-    if game_state is None:
-        status_label["text"] = ""
-    else:
-        status_label["text"] = f"輪到玩家：{current_player}"
+    status_label["text"] = f"輪到玩家：{current_player}"
 
 
 def start_new_game():
-    """開始一局新遊戲：重建 GameState，清空棋盤，重設玩家"""
+    """重開新局：重建 GameState、清空棋盤、重設玩家、恢復按鈕可點"""
     global game_state, current_player
     game_state = GameState(BOARD_SIZE)
     current_player = "X"
+
+    reset_button_styles()
     update_board_ui()
+    set_board_enabled(True)
     update_status_label()
 
 
+def end_game_with_message(message: str, winning_cells=None):
+    """統一處理遊戲結束：更新文字、禁用棋盤、標示勝利線"""
+    status_label["text"] = message
+    if winning_cells:
+        mark_winning_cells(winning_cells)
+    if game_state is not None:
+        game_state.set_game_over()
+    set_board_enabled(False)
+
+
 def on_cell_click(row, col):
-    """
-    玩家在 (row, col) 點擊：
-    - 若遊戲已結束 -> 不動作
-    - 若該格不空 -> 不動作
-    - 否則：
-        1. 呼叫 game_state.set_move()
-        2. 更新 UI
-        3. check_winner() / is_draw()
-        4. 更新狀態列與 game_over
-    """
     global current_player
 
     if game_state is None:
         return
 
-    # 遊戲結束就不再響應
     if game_state.is_game_over():
         return
 
-    # 不允許覆寫已有棋子
     if not game_state.is_cell_empty(row, col):
         return
 
-    # 由 GameState 負責記錄棋盤
     game_state.set_move(row, col, current_player)
     update_board_ui()
 
-    # 檢查勝負
     winner = check_winner(game_state.board)
     if winner is not None:
-        status_label["text"] = f"玩家 {winner} 獲勝！"
-        game_state.set_game_over()
+        cells = get_winning_cells(game_state.board)
+        end_game_with_message(f"玩家 {winner} 獲勝！", winning_cells=cells)
         return
 
-    # 檢查平手
     if is_draw(game_state.board):
-        status_label["text"] = "平手！"
-        game_state.set_game_over()
+        end_game_with_message("平手！")
         return
 
-    # 尚未結束 -> 換人
     current_player = "O" if current_player == "X" else "X"
     update_status_label()
 
 
 def create_board(root):
-    """
-    建立 3x3 棋盤按鈕：
-    - 使用 grid() 佈局
-    - row 從 1 開始，讓 row=0 留給標題
-    """
     global buttons
     buttons = []
     for r in range(BOARD_SIZE):
@@ -121,22 +128,21 @@ def main():
     global status_label
 
     root = tk.Tk()
-    root.title("圈圈叉叉 - C3 GameState 整合版")
+    root.title("圈圈叉叉 - C4 重開+勝利線版本")
 
-    # 標題列（第 0 列）
     title_label = tk.Label(root, text="Tic Tac Toe", font=("Helvetica", 24))
     title_label.grid(row=0, column=0, columnspan=BOARD_SIZE, pady=10)
 
-    # 棋盤按鈕（第 1~3 列）
     create_board(root)
 
-    # 狀態列（顯示輪到誰 / 誰贏 / 平手）
     status_label = tk.Label(root, text="", font=("Helvetica", 14))
-    status_label.grid(row=BOARD_SIZE + 1, column=0, columnspan=BOARD_SIZE, pady=10)
+    status_label.grid(row=BOARD_SIZE + 1, column=0, columnspan=BOARD_SIZE, pady=8)
 
-    # 初始化一局新遊戲
+    # 重新開始按鈕
+    reset_btn = tk.Button(root, text="重新開始", font=("Helvetica", 12), command=start_new_game)
+    reset_btn.grid(row=BOARD_SIZE + 2, column=0, columnspan=BOARD_SIZE, pady=8)
+
     start_new_game()
-
     root.mainloop()
 
 
