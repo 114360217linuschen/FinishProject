@@ -1,28 +1,26 @@
 """
-ttt_lib.py - 井字棋遊戲邏輯的介面草稿（L2 版本）
+ttt_lib.py - 井字棋遊戲邏輯模組（L4 版本）
 
-此版本目的：
-- 仍以「介面設計」為主
-- 但已經實作基本的棋盤操作（落子、檢查是否為空格）
-- 勝負判斷與平手判斷仍先保留為簡化版
+相較 L3：
+- 保留原有 API：check_winner(board) -> "X"/"O"/None（不改）
+- 新增 get_winning_cells(board)：
+    - 若有人獲勝，回傳該勝利線的座標列表 [(r,c), ...]
+    - 若沒人獲勝，回傳 []
+用途：
+- 讓 UI 可以在獲勝時標示出勝利連線
 """
 
 class GameState:
     def __init__(self, size=3):
-        # 建立 size x size 棋盤，預設為空字串
         self.size = size
         self.board = [["" for _ in range(size)] for _ in range(size)]
         self.game_over = False
 
     def is_cell_empty(self, row, col) -> bool:
-        """檢查指定格子是否為空"""
         return self.board[row][col] == ""
 
     def set_move(self, row, col, player):
-        """
-        在 (row, col) 放入指定玩家的棋子（"X" 或 "O"）。
-        這裡不檢查玩家是否合法，只單純寫入。
-        """
+        """若遊戲未結束且該格為空，則落子。"""
         if self.is_cell_empty(row, col) and not self.game_over:
             self.board[row][col] = player
 
@@ -35,17 +33,72 @@ class GameState:
 
 def check_winner(board):
     """
-    檢查是否有人獲勝。
-    L2 版本仍先回傳 None（表示尚未判斷）。
-    未來版本會實作列、行與對角線判斷。
+    回傳：
+      - "X" / "O"：某一方獲勝
+      - None：尚未分出勝負
     """
-    return None
+    cells = get_winning_cells(board)
+    if not cells:
+        return None
+    r0, c0 = cells[0]
+    return board[r0][c0]
+
+
+def get_winning_cells(board):
+    """
+    若有人獲勝，回傳勝利線座標，例如 [(0,0),(0,1),(0,2)]
+    若無勝利線，回傳 []
+    """
+    size = len(board)
+
+    # 列
+    for r in range(size):
+        first = board[r][0]
+        if first != "" and all(board[r][c] == first for c in range(size)):
+            return [(r, c) for c in range(size)]
+
+    # 行
+    for c in range(size):
+        first = board[0][c]
+        if first != "" and all(board[r][c] == first for r in range(size)):
+            return [(r, c) for r in range(size)]
+
+    # 主對角線
+    first = board[0][0]
+    if first != "" and all(board[i][i] == first for i in range(size)):
+        return [(i, i) for i in range(size)]
+
+    # 反對角線
+    first = board[0][size - 1]
+    if first != "" and all(board[i][size - 1 - i] == first for i in range(size)):
+        return [(i, size - 1 - i) for i in range(size)]
+
+    return []
 
 
 def is_draw(board):
     """
-    檢查是否平手。
-    L2 版本仍先回傳 False（永遠不平手）。
-    未來版本會依據棋盤是否填滿且無勝負來判斷。
+    平手條件：
+    - 沒有任何一方獲勝
+    - 棋盤上沒有空格
     """
-    return False
+    if check_winner(board) is not None:
+        return False
+
+    for row in board:
+        for cell in row:
+            if cell == "":
+                return False
+
+    return True
+
+
+if __name__ == "__main__":
+    # 簡單自測
+    gs = GameState(3)
+    gs.set_move(0, 0, "X")
+    gs.set_move(0, 1, "X")
+    gs.set_move(0, 2, "X")
+    print("Winner (預期 X):", check_winner(gs.board))
+    print("Winning cells (預期 [(0,0),(0,1),(0,2)]):", get_winning_cells(gs.board))
+    print("Is draw (預期 False):", is_draw(gs.board))
