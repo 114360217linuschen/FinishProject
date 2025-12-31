@@ -1,0 +1,10 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# External tools
+_avast_/
+
+# Game data (generated at runtime)
+ttt_history.json
+ttt_stats.json
